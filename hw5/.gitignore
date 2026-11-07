@@ -1,0 +1,6 @@
+.venv/
+exp/
+wandb/
+data/
+__pycache__/
+*.egg-info/

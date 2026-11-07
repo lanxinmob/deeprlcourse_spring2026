@@ -9,11 +9,13 @@ from scripts.run import main, setup_arguments
 
 APP_NAME = "hw5-offline-rl"
 NETRC_PATH = Path("~/.netrc").expanduser()
+if not NETRC_PATH.is_file():
+    NETRC_PATH = Path("~/_netrc").expanduser()
 PROJECT_DIR = "/root/project"
 VOLUME_PATH = "/root/exp"
 DEFAULT_GPU = "T4"
 DEFAULT_CPU = 2.0
-DEFAULT_MEMORY = 4096  # MB
+DEFAULT_MEMORY = 16384  # MB
 volume = modal.Volume.from_name("hw5-offline-rl-volume", create_if_missing=True)
 
 

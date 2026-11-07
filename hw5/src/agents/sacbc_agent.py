@@ -42,6 +42,7 @@ class SACBCAgent(nn.Module):
 
         self.target_entropy = -action_dim / 2  # Heuristic value (|A| / 2) from the SAC paper.
 
+
     def get_action(self, observation: np.ndarray):
         """
         Used for evaluation.
@@ -64,8 +65,14 @@ class SACBCAgent(nn.Module):
         Update Q(s, a)
         """
         # TODO(student): Compute the Q loss
-        q = ...
-        loss = ...
+        with torch.no_grad(): #不把梯度回传到 target_critic 和 actor
+            dist = self.actor(next_observations)
+            next_action = dist.sample()
+            q = rewards + self.discount*(1-dones)*(
+                self.target_critic(next_observations,next_action).mean(dim=0))
+
+        pre_q = self.critic(observations,actions)
+        loss = ((pre_q - q.unsqueeze(0)).square()).mean()
 
         self.critic_optimizer.zero_grad()
         loss.backward()
@@ -88,12 +95,14 @@ class SACBCAgent(nn.Module):
         Update the actor
         """
         # TODO(student): Compute the actor loss
-        q_loss = ...
+        dist = self.actor(observations)
+        pre_ac = dist.rsample()
+        log_probs = dist.log_prob(pre_ac)
 
-        mses = ...
-        bc_loss = ...
-
-        entropy_loss = ...
+        q_loss = -self.critic(observations,pre_ac).mean()
+        mses = (pre_ac - actions).square().mean()
+        bc_loss = self.alpha * mses
+        entropy_loss = self.beta().detach() * log_probs.mean()
 
         loss = q_loss + bc_loss + entropy_loss
 
@@ -106,7 +115,7 @@ class SACBCAgent(nn.Module):
             "q_loss": q_loss,
             "bc_loss": bc_loss,
             "entropy_loss": entropy_loss,
-            "mse": mses.mean(),
+            "mse": mses,
         }
 
     @torch.compile
@@ -154,6 +163,12 @@ class SACBCAgent(nn.Module):
 
         return metrics
 
+    @torch.no_grad()#不需要梯度，不记录计算图
     def update_target_critic(self) -> None:
         # TODO(student): Update target_critic using Polyak averaging with self.target_update_rate
-        ...
+        tau = self.target_update_rate
+        for target_param,param in zip(
+            self.target_critic.parameters(),
+            self.critic.parameters()
+        ):
+            target_param.mul_(1-tau).add_(param,alpha=tau)
